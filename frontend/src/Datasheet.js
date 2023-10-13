@@ -44,7 +44,7 @@ function Datasheet() {
             <th>Department</th>
             <th>Office Address</th>
             <th>Residence Address</th>
-            <th>Action</th>
+            <th>Delete</th>
             <th>Update</th>
           </tr>
         </thead>

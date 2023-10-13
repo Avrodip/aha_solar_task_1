@@ -107,7 +107,7 @@ function UpdateEmployee() {
                   <label htmlFor="office_address" className="form-label">
                     Office Address
                   </label>
-                  <input
+                  <input  
                     type="text"
                     className="form-control"
                     id="office_address"

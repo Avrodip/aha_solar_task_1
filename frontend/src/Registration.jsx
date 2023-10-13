@@ -4,6 +4,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import backgroundImage from './background.jpg';
 import { Link } from 'react-router-dom';
+import ReCAPTCHA from "react-google-recaptcha";
 
 const Registration = () => {
   const [values, setValues] = useState({
@@ -13,6 +14,7 @@ const Registration = () => {
     address_residence: '',
   });
   const [departmentOptions, setDepartmentOptions] = useState([]);
+  const [recaptchaValue, setRecaptchaValue] = useState(null); 
 
   useEffect(() => {
     fetchDepartmentOptions();
@@ -24,6 +26,11 @@ const Registration = () => {
 
   const handleSubmit = (event) => {
     event.preventDefault();
+    if (!recaptchaValue) {
+      toast.error("Please complete the ReCAPTCHA");
+      return;
+    }
+
     const { name, department, address_office, address_residence } = values;
 
     axios
@@ -43,8 +50,6 @@ const Registration = () => {
       });
   };
 
-
-
   const fetchDepartmentOptions = () => {
     axios
       .get('http://localhost:3002/departments')
@@ -56,8 +61,6 @@ const Registration = () => {
       });
   };
 
-
-  
   const backgroundStyle = {
     backgroundImage: `url(${backgroundImage})`,
     backgroundSize: 'cover',
@@ -69,6 +72,11 @@ const Registration = () => {
     left: 0,
     right: 0,
     bottom: 0,
+  };
+
+  const onChange = (value) => {
+    setRecaptchaValue(value);
+    console.log(value);
   };
 
   return (
@@ -109,11 +117,20 @@ const Registration = () => {
                     <input type='text' placeholder='Enter residence address' name='address_residence' className='form-control' onChange={handleChange} required />
                   </div>
 
+                  <ReCAPTCHA
+                    sitekey="6Ldt95UoAAAAAFQY9O5Ig_kT4EViYVQnOJV_gfHT"
+                    onChange={onChange}
+                    required
+                  />
+                  <br />
+
                   <div className='d-grid gap-2'>
-                    <button className='btn btn-primary' type='submit'>Submit</button>
+                    <button className='btn btn-primary' type='submit'>
+                      Submit
+                    </button>
                   </div>
                 </form>
-                <br/>
+                <br />
                 <div className='d-grid gap-2'>
                   <Link to="/datasheet" className="btn btn-success">
                     View Datasheet
