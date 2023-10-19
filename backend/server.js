@@ -14,7 +14,7 @@ app.use(express.json());
 app.use(cors());
 
 
-//showing the full datasheet
+
 app.get('/datasheet', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
