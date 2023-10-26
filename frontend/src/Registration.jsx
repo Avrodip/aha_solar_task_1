@@ -24,13 +24,17 @@ const Registration = () => {
 
   const [departmentOptions, setDepartmentOptions] = useState([]);
   const [recaptchaValue, setRecaptchaValue] = useState(null);
-
-  useEffect(() => {
+  const [temp,settemp]=useState(values)
+  useEffect((event) => {
     fetchDepartmentOptions();
-  }, []);
+    settemp(values);
+  
+  }, [values]);
+
 
   const handleChange = (event) => {
     setValues({ ...values, [event.target.name]: event.target.value });
+  
   };
 
   const handleSubmit = (event) => {
@@ -193,7 +197,7 @@ const Registration = () => {
                   </div>
 
                   <ReCAPTCHA
-                    sitekey="Enter your site key"
+                    sitekey="6Ldt95UoAAAAAFQY9O5Ig_kT4EViYVQnOJV_gfHT"
                     onChange={onChange}
                     required
                   />

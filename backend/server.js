@@ -2,35 +2,55 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 const mysql = require('mysql2/promise');
+const jwt = require('jsonwebtoken');
 
 const dbConfig = {
   user: "root",
   host: "localhost",
   password: "admin",
-  database: "task"
+  database: "shopit"  
 };
 
 app.use(express.json());
 app.use(cors());
 
-
-
-app.get('/datasheet', async (req, res) => {
+app.get('/admin', verify ,async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    const [rows] = await connection.execute("SELECT e.eid, e.name AS employee_name, d.dept_name, (SELECT address FROM address_master WHERE eid = e.eid AND address_type = 'office' LIMIT 1) AS office_address, (SELECT address FROM address_master WHERE eid = e.eid AND address_type = 'residence' LIMIT 1) AS residence_address FROM employee AS e JOIN dept_master AS d ON e.dept_id = d.dept_id;");
+    const [rows] = await connection.execute("Select * from admins");
+    
+    connection.end();
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+  
+});
 
-    const jsonData = rows.map(row => ({
-      eid: row.eid,
-      employee_name: row.employee_name,
-      dept_name: row.dept_name,
-      office_address: row.office_address || '',
-      residence_address: row.residence_address || ''
-    }));
+app.get('/suppliers',verify, async (req, res) => {
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    const [rows] = await connection.execute("Select * from suppliers");
 
     connection.end();
-    res.status(200).json(jsonData);
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.get('/users',verify, async (req, res) => {
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    const [rows] = await connection.execute("Select * from users");
+
+    connection.end();
+    res.status(200).json(rows);
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ error: 'Internal Server Error' });
@@ -39,186 +59,97 @@ app.get('/datasheet', async (req, res) => {
 
 
 
-//register page
-
-app.post('/register', async (req, res) => {
-  const {
-    name,
-    department,
-    address_office,
-    address_residence
-  } = req.body;
-
+app.post('/login', async (req, res) => {
   try {
+    const { username, password, role } = req.body;
+    
     const connection = await mysql.createConnection(dbConfig);
+    const tableName = (role === 'admin') ? 'admins' : (role === 'supplier') ? 'suppliers' : 'users';
 
-    const [newEmployeeResult] = await connection.execute(
-      "INSERT INTO employee(name, dept_id) VALUES (?, ?);",
-      [name, department]
-    );
-
-    const eid = newEmployeeResult.insertId;
-    console.log(eid);
-
-    await connection.execute(
-      "INSERT INTO address_master(address_type, address, eid) VALUES (?, ?, ?);",
-      ["office", address_office, eid]
-    );
-
-    await connection.execute(
-      "INSERT INTO address_master(address_type, address, eid) VALUES (?, ?, ?);",
-      ["residence", address_residence, eid]
-    );
+    const [rows] = await connection.execute(`SELECT * FROM ${tableName} WHERE Username = ? AND password = ?`, [username, password]);
 
     connection.end();
+    
+    if (rows.length === 1) {
+     
+      const user = { username, role };
+      const secretKey = 'ABCDZYX';
 
-    res.status(201).json({
-      status: 'success',
-      data: {
-        newEmployee: newEmployeeResult,
-        message: 'Employee and addresses added successfully'
-      }
-    });
+      jwt.sign({ user }, secretKey, (err, token) => {
+        if (err) {
+          console.error('JWT Error:', err);
+          res.status(500).json({ error: 'Internal Server Error' });
+        } else {
+          console.log(token)
+          res.status(200).json({ token, message: 'Login successful' });
+        }
+      });
+    } else {
+      res.status(401).json({ error: 'Invalid credentials' });
+    }
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
-
-
-
-app.get('/datasheet/:eid', async (req, res) => {
-  const eid = req.params.eid;
-
+app.post('/signup', async (req, res) => {
   try {
+    const {
+      firstName,
+      lastName,
+      address,
+      phoneNumber,
+      email,
+      username,
+      password,
+      role,
+      position,
+      hireDate,
+    } = req.body;
+
     const connection = await mysql.createConnection(dbConfig);
 
-    const [rows] = await connection.execute(
-      `
-      SELECT e.eid, e.name AS employee_name, d.dept_name,
-        (SELECT address FROM address_master WHERE eid = e.eid AND address_type = 'office' LIMIT 1) AS office_address,
-        (SELECT address FROM address_master WHERE eid = e.eid AND address_type = 'residence' LIMIT 1) AS residence_address
-      FROM employee AS e
-      JOIN dept_master AS d ON e.dept_id = d.dept_id
-      WHERE e.eid = ?;
-      `,
-      [eid]
+    if(role==="admin"){
+    await connection.execute(
+      `INSERT INTO admins (first_name, last_name, position, hire_date, phone, address)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [firstName, lastName, address, phoneNumber, email, username, password, position, hireDate]
     );
-
-    if (rows.length === 0) {
-      connection.end();
-      return res.status(404).json({ error: 'Employee not found' });
     }
 
-    const employeeData = {
-      eid: rows[0].eid,
-      employee_name: rows[0].employee_name,
-      dept_name: rows[0].dept_name,
-      office_address: rows[0].office_address || '',
-      residence_address: rows[0].residence_address || '',
-    };
-
     connection.end();
-    res.status(200).json(employeeData);
+    res.status(200).json({ message: 'Registration successful' });
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
+function verify(req, res, next) {
+  //add multiple middlewares for multiple admins 
 
-app.delete('/datasheet/:eid', async (req, res) => {
-  const eid = req.params.eid;
-
-  try {
-    const connection = await mysql.createConnection(dbConfig);
-    await connection.execute("DELETE FROM address_master WHERE eid = ?;", [eid]);
-    await connection.execute("DELETE FROM employee WHERE eid = ?;", [eid]);
-
-    connection.end();
-
-    res.status(200).json({ status: 'success', message: 'Employee deleted successfully' });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+  //const token_admin1="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7InVzZXJuYW1lIjoiYXZyb18yNSIsInJvbGUiOiJhZG1pbiJ9LCJpYXQiOjE2OTgyNTYxMzN9.Vn3R3sjnM7suP32K8K8iSfi0aAJ7JlnhC5KWx3M2QXE"
+ //const 
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (token == null) {
+    return res.sendStatus(401);
   }
-});
 
-
-//fetch departments
-app.get('/departments', async (req, res) => {
-  try {
-    const connection = await mysql.createConnection(dbConfig);
-
-    const [rows] = await connection.execute("SELECT dept_id, dept_name FROM dept_master");
-
-    const departmentData = rows.map(row => ({
-      dept_id: row.dept_id,
-      dept_name: row.dept_name,
-    }));
-
-    connection.end();
-    res.status(200).json(departmentData);
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-//update database
-
-app.put('/datasheet/:eid', async (req, res) => {
-  const eid = req.params.eid;
-  const {
-    employee_name,
-    dept_name,
-    office_address,
-    residence_address
-  } = req.body;
-
-  try {
-    const connection = await mysql.createConnection(dbConfig);
-
-    const [deptRow] = await connection.execute(
-      "SELECT dept_id FROM dept_master WHERE dept_name = ?;",
-      [dept_name]
-    );
-   
   
-    const dept_id = deptRow[0].dept_id;
+  const secretKey = 'ABCDZYX';
+  jwt.verify(token, secretKey, (err, user) => {
+    if (err) {
+      console.error('JWT Verification Error:', err);
+      return res.sendStatus(403);
+    }
     
-
-    await connection.execute(
-      "UPDATE employee SET name = ?, dept_id = ? WHERE eid = ?;",
-      [employee_name, dept_id, eid]
-    );
-
-   
-    
-    await connection.execute(
-      "UPDATE address_master SET address = ? WHERE eid = ? AND address_type = 'office';",
-      [office_address, eid]
-    );
-
- 
-    await connection.execute(
-      "UPDATE address_master SET address = ? WHERE eid = ? AND address_type = 'residence';",
-      [residence_address, eid]
-    );
-
-    connection.end();
-
-    res.status(200).json({ status: 'success', message: 'Employee data updated successfully' });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-
-
+    req.user = user;
+    next(); 
+  });
+}
 
 const port = 3002;
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
+    console.log(`Server is running on port ${port}`);
+  });
